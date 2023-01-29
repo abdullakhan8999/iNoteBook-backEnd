@@ -61,7 +61,7 @@ module.exports = router.post(
 );
 
 // Login user
-module.exports = router.get(
+module.exports = router.post(
   "/login",
   [
     body("email", "email can not be blank!").exists(),
@@ -103,6 +103,89 @@ module.exports = router.get(
       console.error(error.message);
       res.status(500).json({
         error: "Internal server error!",
+      });
+    }
+  }
+);
+
+module.exports = router.post(
+  "/update-user/:id",
+  [
+    body("name", "Name can not be blank!").exists(),
+    body("name", "Enter a valid Name!").isLength({ min: 3 }),
+    body("email", "Email can not be blank!").exists(),
+    body("email", "Enter a valid Email!").isEmail(),
+    body("password", "Password can not be blank!").exists(),
+    body("password", "Password must be at least three characters!").isLength({
+      min: 3,
+    }),
+  ],
+  fetchuser,
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { name, email } = req.body;
+    try {
+      // Hash the password
+      let hashPassword = null;
+      if (req.body.password) {
+        const salt = await bcrypt.genSalt(10);
+        hashPassword = await bcrypt.hash(req.body.password, salt);
+      }
+
+      // Find the user
+      let user = await User.findById(req.params.id);
+      if (!user) {
+        return res.status(404).send("Not Found");
+      }
+
+      // Check if the request is coming from the correct user
+      if (user._id.toString() !== req.user.id) {
+        return res.status(401).send("Not Allowed");
+      }
+
+      // Update the user data
+      let updatedUser = {};
+      if (name) {
+        updatedUser.name = name;
+      }
+      if (email) {
+        if (
+          await User.findOne({
+            email: email,
+          })
+        ) {
+          return res
+            .status(400)
+            .json({ error: "Please try with another email!" });
+        }
+        updatedUser.email = email;
+      }
+      if (hashPassword) {
+        updatedUser.password = hashPassword;
+      }
+
+      user = await User.findByIdAndUpdate(
+        req.params.id,
+        { $set: updatedUser },
+        { new: true }
+      );
+
+      // Sign the JWT and send the response
+      let data = {
+        user: {
+          id: user.id,
+        },
+      };
+      const token = jwt.sign(data, "secretToken");
+      res.json({ message: "User data updated!", token: token });
+    } catch (error) {
+      console.error(error.message);
+      res.status(500).json({
+        error: "Please enter a unique value for email!",
       });
     }
   }
