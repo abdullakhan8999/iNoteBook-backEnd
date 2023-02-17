@@ -20,9 +20,11 @@ module.exports = router.post(
     }),
   ],
   async (req, res, next) => {
+    let success = false;
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      success = false;
+      return res.status(400).json({ success, errors: errors.array() });
     }
 
     const { email } = req.body;
@@ -30,9 +32,10 @@ module.exports = router.post(
       let user = await User.findOne({ email: email });
 
       if (user) {
+        success = false;
         return res
           .status(400)
-          .json({ error: "Please try with another email!" });
+          .json({ success, error: "Please try with another email!" });
       }
 
       // hashing password
@@ -49,13 +52,15 @@ module.exports = router.post(
         },
       };
       const token = jwt.sign(data, "secretToken");
-      res.json({ message: "User Created!", token: token });
+      success = true;
+      res.json({ success, message: "User Created!", token: token });
       next();
     } catch (error) {
       console.error(error.message);
-      res.status(500).json({
-        error: "Please enter unique value for email!",
-      });
+      success = false;
+      res
+        .status(500)
+        .json({ success, error: "Please enter unique value for email!" });
     }
   }
 );
@@ -69,9 +74,11 @@ module.exports = router.post(
     body("password", "Password can not be blank!").exists(),
   ],
   async (req, res, next) => {
+    let success = false;
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      success = false;
+      return res.status(400).json({ success, errors: errors.array() });
     }
 
     const { email, password } = req.body;
@@ -79,16 +86,20 @@ module.exports = router.post(
       let user = await User.findOne({ email: email });
 
       if (!user) {
-        return res
-          .status(400)
-          .json({ error: "Please try to log in with correct credentials!" });
+        success = false;
+        return res.status(400).json({
+          success,
+          error: "Please try to log in with correct credentials!",
+        });
       }
 
-      const passwordCompare = bcrypt.compare(password, user.password);
+      const passwordCompare = await bcrypt.compare(password, user.password);
       if (!passwordCompare) {
-        return res
-          .status(400)
-          .json({ error: "Please try to login with correct credentials!" });
+        success = false;
+        return res.status(400).json({
+          success,
+          error: "Please try to login with correct credentials!",
+        });
       }
 
       const data = {
@@ -96,12 +107,15 @@ module.exports = router.post(
           id: user.id,
         },
       };
+      success = true;
       const token = jwt.sign(data, "secretToken");
-      res.json({ message: "User logged in!", token: token });
+      res.json({ success, message: "User logged in!", token: token });
       next();
     } catch (error) {
+      success = false;
       console.error(error.message);
       res.status(500).json({
+        success,
         error: "Internal server error!",
       });
     }

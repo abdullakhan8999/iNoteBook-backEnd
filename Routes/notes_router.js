@@ -106,10 +106,9 @@ module.exports = router.delete(
   fetchuser,
   async (req, res) => {
     try {
-      console.log();
       let note = await Notes.findById(req.params.id);
       if (!note) {
-        return res.status(404).send("Not Found");
+        return res.status(404).send(`Not Found ${id}`);
       }
 
       if (note.user.toString() !== req.user.id) {

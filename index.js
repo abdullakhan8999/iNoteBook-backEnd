@@ -3,6 +3,8 @@ const express = require("express");
 const App = express();
 const serverConfig = require("./config/server.configs");
 connectToMongo();
+const cors = require("cors");
+App.use(cors());
 App.use(express.json());
 
 App.get("/", (req, res) => {
